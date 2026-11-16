@@ -380,6 +380,9 @@ impl StudioApp {
             Some("de") => settings.language = i18n::Language::German,
             Some("es") => settings.language = i18n::Language::Spanish,
             Some("fr") => settings.language = i18n::Language::French,
+            Some("zh-TW" | "zh-tw" | "zh_TW" | "zh-Hant" | "zh-hant") => {
+                settings.language = i18n::Language::TraditionalChinese
+            }
             _ => {}
         }
         match options.appearance.as_deref() {

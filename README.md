@@ -117,7 +117,7 @@ Design screens visually, import existing **SquareLine Studio** projects, and LVG
   A theme color marked **Runtime** is exported without `const`: the application can write a new value
   (e.g. `_ui_theme_color_UserColor[UI_THEME_DEFAULT] = 0x00C853;`) and call `ui_theme_set()` to apply it.
 - **AI assistant**: describe a screen and Claude builds it, validated against the widget catalog.
-- Multi language UI (English, German, Spanish, French), light and dark appearance.
+- Multi language UI (English, German, Spanish, French, Traditional Chinese for Taiwan), light and dark appearance.
 - Project settings: LVGL version, resolution (with presets), round or rectangular display.
 - **Themes** tab next to the parameters: lv_theme_default (dark or light, primary and secondary color) and the color themes.
 
@@ -506,9 +506,14 @@ MyProject/
 ## Translations
 
 UI texts are written in English in the code and translated through
-[`crates/app/locales/<language>.json`](crates/app/locales/) (`de`, `es`, `fr`). Each file maps English
+[`crates/app/locales/<language>.json`](crates/app/locales/) (`de`, `es`, `fr`, `zh-TW`). Each file maps English
 to the target language and is embedded at build time. Missing entries fall back to English; a test
 checks that every language has every text and keeps the `{}` placeholders.
+
+Traditional Chinese uses Taiwan terminology and is selected automatically on `zh-TW` or `zh-Hant`
+systems. Choose **繁體中文（台灣）** in Preferences → General → Language, or launch with
+`lvglab --language zh-TW`. The editor bundles Noto Sans CJK TC under the
+[SIL Open Font License](crates/app/assets/fonts/OFL.txt) for Chinese text rendering.
 
 To add a language:
 

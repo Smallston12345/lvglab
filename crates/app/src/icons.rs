@@ -1,7 +1,7 @@
 //! Icons of the editor: the Phosphor icon font (MIT), one consistent set
 //! instead of emoji and symbol characters.
 
-use eframe::egui::FontDefinitions;
+use eframe::egui::{FontData, FontDefinitions, FontFamily};
 pub use egui_phosphor::regular::*;
 use lvglab_model::WidgetKind;
 
@@ -9,6 +9,15 @@ use lvglab_model::WidgetKind;
 pub fn fonts() -> FontDefinitions {
     let mut fonts = FontDefinitions::default();
     egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+    // Bundle a Traditional Chinese fallback so the UI also works on systems
+    // without CJK fonts. Keep the editor's Latin and icon fonts first.
+    let name = "Noto Sans CJK TC";
+    fonts
+        .font_data
+        .insert(name.into(), FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKtc-Regular.otf")).into());
+    for family in [FontFamily::Proportional, FontFamily::Monospace] {
+        fonts.families.entry(family).or_default().push(name.into());
+    }
     fonts
 }
 
@@ -53,5 +62,31 @@ pub fn widget(kind: WidgetKind) -> &'static str {
         WidgetKind::Menu => CARDS,
         WidgetKind::Msgbox => CHAT_TEXT,
         WidgetKind::Component => PACKAGE,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::i18n::Language;
+    use eframe::egui::{Context, FontFamily, FontId};
+
+    #[test]
+    fn editor_fonts_cover_traditional_chinese() {
+        let ctx = Context::default();
+        ctx.set_fonts(super::fonts());
+        let _ = ctx.run(Default::default(), |ctx| {
+            ctx.fonts(|fonts| {
+                for family in [FontFamily::Proportional, FontFamily::Monospace] {
+                    let id = FontId::new(13.5, family);
+                    let language = Language::TraditionalChinese;
+                    for text in language.table().unwrap().values().map(String::as_str).chain([language.native_name()]) {
+                        for c in text.chars().filter(|c| !c.is_control()) {
+                            assert!(fonts.has_glyph(&id, c), "Missing glyph {c:?} in {:?}", id.family);
+                        }
+                    }
+                }
+                assert!(fonts.has_glyphs(&FontId::proportional(13.5), super::GEAR));
+            });
+        });
     }
 }

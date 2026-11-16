@@ -216,13 +216,9 @@ fn preferences(ctx: &egui::Context, studio: &mut Studio) {
             card(&mut cols[0], crate::icons::GEAR, tr("General"), |ui| {
                 grid(ui, "prefs_general_grid", |ui| {
                     label(ui, tr("Language"), "");
-                    ui.horizontal(|ui| {
-                        for language in Language::ALL {
-                            if ui.selectable_value(&mut s.language, language, language.native_name()).changed() {
-                                i18n::set_language(language);
-                            }
-                        }
-                    });
+                    if widgets::choice(ui, "editor_language", &mut s.language, &Language::ALL, Language::native_name) {
+                        i18n::set_language(s.language);
+                    }
                     ui.end_row();
                     label(ui, tr("Appearance"), "");
                     ui.horizontal(|ui| {

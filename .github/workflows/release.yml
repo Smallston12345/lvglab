@@ -89,8 +89,9 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           dir="LVGLab-${version}-${{ matrix.name }}"
-          mkdir -p "$dir/examples"
+          mkdir -p "$dir/examples" "$dir/licenses/fonts"
           cp README.md LICENSE "$dir/"
+          cp crates/app/assets/fonts/OFL.txt crates/app/assets/fonts/README.md "$dir/licenses/fonts/"
           cp -r examples/showcase "$dir/examples/"
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp "target/${{ matrix.target }}/release/lvglab.exe" "$dir/"

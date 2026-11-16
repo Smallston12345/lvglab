@@ -18,10 +18,11 @@ pub enum Language {
     German,
     Spanish,
     French,
+    TraditionalChinese,
 }
 
 impl Language {
-    pub const ALL: [Self; 4] = [Self::English, Self::German, Self::Spanish, Self::French];
+    pub const ALL: [Self; 5] = [Self::English, Self::German, Self::Spanish, Self::French, Self::TraditionalChinese];
 
     /// Name of the language in itself.
     pub fn native_name(self) -> &'static str {
@@ -30,27 +31,36 @@ impl Language {
             Self::German => "Deutsch",
             Self::Spanish => "Español",
             Self::French => "Français",
+            Self::TraditionalChinese => "繁體中文（台灣）",
         }
     }
 
-    /// ISO 639-1 code, as used for the file name in `locales/`.
+    /// Language tag, as used for the file name in `locales/`.
     fn code(self) -> &'static str {
         match self {
             Self::English => "en",
             Self::German => "de",
             Self::Spanish => "es",
             Self::French => "fr",
+            Self::TraditionalChinese => "zh-TW",
         }
     }
 
     pub fn from_system() -> Self {
-        let locale = sys_locale::get_locale().unwrap_or_default().to_ascii_lowercase();
+        Self::from_locale(&sys_locale::get_locale().unwrap_or_default())
+    }
+
+    fn from_locale(locale: &str) -> Self {
+        let locale = locale.to_ascii_lowercase().replace('_', "-");
+        if ["zh-tw", "zh-hant", "zh-hk", "zh-mo"].iter().any(|tag| locale.starts_with(tag)) {
+            return Self::TraditionalChinese;
+        }
         Self::ALL.into_iter().find(|l| *l != Self::English && locale.starts_with(l.code())).unwrap_or(Self::English)
     }
 
     /// The embedded translation table; `None` for English.
     pub(crate) fn table(self) -> Option<&'static HashMap<String, String>> {
-        static TABLES: OnceLock<[HashMap<String, String>; 3]> = OnceLock::new();
+        static TABLES: OnceLock<[HashMap<String, String>; 4]> = OnceLock::new();
         let tables = TABLES.get_or_init(|| {
             let parse = |code: &str, json: &str| -> HashMap<String, String> {
                 serde_json::from_str(json).unwrap_or_else(|err| panic!("locales/{code}.json is invalid: {err}"))
@@ -59,6 +69,7 @@ impl Language {
                 parse("de", include_str!("../locales/de.json")),
                 parse("es", include_str!("../locales/es.json")),
                 parse("fr", include_str!("../locales/fr.json")),
+                parse("zh-TW", include_str!("../locales/zh-TW.json")),
             ]
         });
         match self {
@@ -66,6 +77,7 @@ impl Language {
             Self::German => Some(&tables[0]),
             Self::Spanish => Some(&tables[1]),
             Self::French => Some(&tables[2]),
+            Self::TraditionalChinese => Some(&tables[3]),
         }
     }
 }
@@ -132,19 +144,46 @@ mod tests {
     #[test]
     fn translations_are_complete_and_keep_placeholders() {
         let german = Language::German.table().unwrap();
-        for language in [Language::Spanish, Language::French] {
+        for language in Language::ALL.into_iter().filter(|l| !matches!(l, Language::English | Language::German)) {
             let table = language.table().unwrap();
             for key in german.keys() {
                 assert!(table.contains_key(key), "{language:?} lacks {key:?}");
             }
             assert_eq!(table.len(), german.len(), "{language:?} has extra texts");
         }
-        for language in [Language::German, Language::Spanish, Language::French] {
+        for language in Language::ALL.into_iter().filter(|l| *l != Language::English) {
             for (english, translated) in language.table().unwrap() {
                 assert_eq!(english.matches("{}").count(), translated.matches("{}").count(), "{language:?}: {english}");
             }
         }
         assert_eq!(Language::French.table().unwrap()["Save"], "Enregistrer");
         assert_eq!(Language::Spanish.table().unwrap()["Save"], "Guardar");
+    }
+
+    #[test]
+    fn traditional_chinese_uses_taiwan_terms_and_formats_arguments() {
+        set_language(Language::TraditionalChinese);
+        assert_eq!(language(), Language::TraditionalChinese);
+        assert_eq!(tr("Save"), "儲存");
+        assert_eq!(tr("Import failed"), "匯入失敗");
+        assert_eq!(tr("Export library"), "匯出函式庫");
+        assert_eq!(tr("Preferences"), "偏好設定");
+        assert_eq!(trf("{} screens merged from {}", &[&2, &"demo.lvglab"]), "已合併 2 個畫面，來源：demo.lvglab");
+        assert_eq!(trf("Step {} of {}", &[&3, &15]), "第 3 步，共 15 步");
+        assert_eq!(tr("Not translated text"), "Not translated text");
+        set_language(Language::English);
+    }
+
+    #[test]
+    fn detects_traditional_chinese_locales() {
+        for locale in ["zh-TW", "zh_TW.UTF-8", "zh-Hant", "zh-Hant-TW", "zh-HK", "zh-MO"] {
+            assert_eq!(Language::from_locale(locale), Language::TraditionalChinese, "{locale}");
+        }
+        for locale in ["zh-CN", "zh-Hans", "en-US", ""] {
+            assert_eq!(Language::from_locale(locale), Language::English, "{locale}");
+        }
+        assert_eq!(Language::from_locale("de-DE"), Language::German);
+        assert_eq!(Language::from_locale("es_ES.UTF-8"), Language::Spanish);
+        assert_eq!(Language::from_locale("fr-FR"), Language::French);
     }
 }
