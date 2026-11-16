@@ -42,7 +42,7 @@ pub struct LaunchOptions {
     pub files: Vec<PathBuf>,
     /// `editor` or `lvgl`: the preview renderer for this session.
     pub renderer: Option<String>,
-    /// `en`, `de`, `es` or `fr` / `dark`, `light`: for this session (documentation).
+    /// `en`, `de`, `es`, `fr` or `zh-TW` / `dark`, `light`: for this session (documentation).
     pub language: Option<String>,
     pub appearance: Option<String>,
     /// Name of a widget to select after opening.

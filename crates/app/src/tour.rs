@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn every_step_is_translated() {
-        for language in [crate::i18n::Language::German, crate::i18n::Language::Spanish, crate::i18n::Language::French] {
+        for language in crate::i18n::Language::ALL.into_iter().filter(|l| *l != crate::i18n::Language::English) {
             let table = language.table().unwrap();
             for step in &STEPS {
                 assert!(table.contains_key(step.title), "{language:?} lacks {:?}", step.title);

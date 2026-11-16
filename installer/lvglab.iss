@@ -79,6 +79,8 @@ Name: "associate"; Description: "{cm:AssociateFiles}"; GroupDescription: "{cm:Ad
 Source: "{#SourceDir}\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\crates\app\assets\fonts\OFL.txt"; DestDir: "{app}\licenses\fonts"; Flags: ignoreversion
+Source: "..\crates\app\assets\fonts\README.md"; DestDir: "{app}\licenses\fonts"; Flags: ignoreversion
 Source: "..\examples\showcase\*"; DestDir: "{app}\examples\showcase"; Flags: ignoreversion recursesubdirs
 
 [Icons]
