@@ -116,7 +116,7 @@ Design screens visually, import existing **SquareLine Studio** projects, and LVG
   to a theme color follow `ui_theme_set()` at runtime.
   A theme color marked **Runtime** is exported without `const`: the application can write a new value
   (e.g. `_ui_theme_color_UserColor[UI_THEME_DEFAULT] = 0x00C853;`) and call `ui_theme_set()` to apply it.
-- **AI assistant**: describe a screen and Claude, GPT or DeepSeek builds it, validated against the widget catalog.
+- **AI assistant**: describe a screen and Claude, GPT, Gemini or DeepSeek builds it, validated against the widget catalog.
 - Multi language UI (English, German, Spanish, French, Traditional Chinese for Taiwan), light and dark appearance.
 - Project settings: LVGL version, resolution (with presets), round or rectangular display.
 - **Themes** tab next to the parameters: lv_theme_default (dark or light, primary and secondary color) and the color themes.
@@ -268,18 +268,19 @@ Keyboard shortcuts:
 ## AI assistant
 
 The **AI assistant** panel builds interfaces from a description, e.g. *"Settings screen with three
-switches and a back button"* or *"make all buttons rounder"*. It works with three services:
+switches and a back button"* or *"make all buttons rounder"*. It works with four services:
 
 | Provider | API key | Environment variable | Models in the list |
 |---|---|---|---|
 | Anthropic (Claude) | [console.anthropic.com](https://console.anthropic.com/settings/keys) | `ANTHROPIC_API_KEY` | Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 |
 | OpenAI (GPT) | [platform.openai.com](https://platform.openai.com/api-keys) | `OPENAI_API_KEY` | GPT-6.2 Astra, GPT-6.2 Sol |
+| Google (Gemini) | [aistudio.google.com](https://aistudio.google.com/apikey) | `GEMINI_API_KEY` | Gemini 4 Carbon, Neon, Hydrogen, Argon |
 | DeepSeek | [platform.deepseek.com](https://platform.deepseek.com/api_keys) | `DEEPSEEK_API_KEY` | DeepSeek V4 Pro, DeepSeek Flash |
 
 1. Create an API key with the provider.
 2. Under **Edit → Preferences → AI assistant**, choose the **Provider** and enter its key (or set its
-   environment variable). Each provider keeps its own key and model; for OpenAI and DeepSeek another
-   model ID can be typed in below the model list.
+   environment variable). Each provider keeps its own key and model; for OpenAI, Gemini and DeepSeek
+   another model ID can be typed in below the model list.
 3. Choose **Change current screen** or **New screen**, describe what you want and press **Send** (Ctrl+Enter).
 
 How it works:
@@ -293,7 +294,8 @@ How it works:
   never applied blindly.
 - Every answer becomes one step in the timeline (`AI: …`), so Ctrl+Z undoes it.
 - Model and effort can be changed in the preferences (sent as `reasoning_effort` to OpenAI and DeepSeek;
-  DeepSeek maps medium to very thorough to its `high` level). For Claude safety declines, the server-side
+  DeepSeek maps medium to very thorough to its `high` level; Gemini gets `LOW`, `MEDIUM` or `HIGH`, the two
+  highest levels both use `HIGH`). For Claude safety declines, the server-side
   fallback is enabled.
 - Requests are billed to your account with the provider. The keys are stored in the editor settings on your computer.
 
@@ -539,7 +541,7 @@ crates/
 ├── model     lvglab-model    document model: widgets, catalog, styles, events, theme, layout
 ├── spj       lvglab-spj      SquareLine Studio importer
 ├── codegen   lvglab-codegen  C code, image and font conversion, library export
-├── ai        lvglab-ai     AI assistant: prompt, Claude and OpenAI-format API clients, design schema and validation
+├── ai        lvglab-ai     AI assistant: prompt, Claude, Gemini and OpenAI-format API clients, design schema and validation
 ├── lvgl      lvglab-lvgl   LVGL 8.3 and 9.6 (vendored; LVGL 9 symbols prefixed lv9_) plus an interpreter for the generated C: the LVGL preview
 └── app       lvglab  egui desktop application
 ```
@@ -572,7 +574,9 @@ The release workflow signs the programs when the certificates are stored as repo
 | `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` | Optional: notarization with an app-specific password |
 
 LVGLab looks for a newer release on GitHub when it starts (*Preferences → Export*, or *Help → Check for updates*)
-and shows a link in the status bar. Nothing is downloaded or installed automatically.
+and shows a link in the status bar. Nothing is downloaded or installed automatically. This edition asks for
+releases of [Smallston12345/lvglab](https://github.com/Smallston12345/lvglab/releases), not of the original project.
+A release build takes its version from the tag (`v0.15.0.1` → 0.15.0.1), so four-part versions work.
 
 The Windows installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php) from
 [`installer/lvglab.iss`](installer/lvglab.iss):

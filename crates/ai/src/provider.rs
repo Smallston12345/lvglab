@@ -2,8 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-/// An AI service. Anthropic uses its own Messages API; the others use the
-/// OpenAI Chat Completions format (see [`crate::openai`]).
+/// An AI service. Anthropic and Google have their own APIs; OpenAI and
+/// DeepSeek use the Chat Completions format (see [`crate::openai`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Provider {
@@ -13,10 +13,11 @@ pub enum Provider {
     OpenAi,
     #[serde(rename = "deepseek")]
     DeepSeek,
+    Gemini,
 }
 
 impl Provider {
-    pub const ALL: [Self; 3] = [Self::Anthropic, Self::OpenAi, Self::DeepSeek];
+    pub const ALL: [Self; 4] = [Self::Anthropic, Self::OpenAi, Self::Gemini, Self::DeepSeek];
 
     /// Name of the company or service, shown in the editor.
     pub fn name(self) -> &'static str {
@@ -24,6 +25,7 @@ impl Provider {
             Self::Anthropic => "Anthropic (Claude)",
             Self::OpenAi => "OpenAI (GPT)",
             Self::DeepSeek => "DeepSeek",
+            Self::Gemini => "Google (Gemini)",
         }
     }
 
@@ -33,6 +35,7 @@ impl Provider {
             Self::Anthropic => "Anthropic",
             Self::OpenAi => "OpenAI",
             Self::DeepSeek => "DeepSeek",
+            Self::Gemini => "Google",
         }
     }
 
@@ -43,6 +46,12 @@ impl Provider {
             Self::Anthropic => crate::client::MODELS,
             Self::OpenAi => &[("gpt-6.2-astra", "GPT-6.2 Astra"), ("gpt-6.2-sol", "GPT-6.2 Sol")],
             Self::DeepSeek => &[("deepseek-v4-pro", "DeepSeek V4 Pro"), ("deepseek-flash", "DeepSeek Flash")],
+            Self::Gemini => &[
+                ("gemini-4-carbon", "Gemini 4 Carbon"),
+                ("gemini-4-neon", "Gemini 4 Neon"),
+                ("gemini-4-hydrogen", "Gemini 4 Hydrogen"),
+                ("gemini-4-argon", "Gemini 4 Argon"),
+            ],
         }
     }
 
@@ -75,6 +84,7 @@ impl Provider {
             Self::Anthropic => "ANTHROPIC_API_KEY",
             Self::OpenAi => "OPENAI_API_KEY",
             Self::DeepSeek => "DEEPSEEK_API_KEY",
+            Self::Gemini => "GEMINI_API_KEY",
         }
     }
 
@@ -84,6 +94,7 @@ impl Provider {
             Self::Anthropic => "https://console.anthropic.com/settings/keys",
             Self::OpenAi => "https://platform.openai.com/api-keys",
             Self::DeepSeek => "https://platform.deepseek.com/api_keys",
+            Self::Gemini => "https://aistudio.google.com/apikey",
         }
     }
 
@@ -92,6 +103,7 @@ impl Provider {
         match self {
             Self::Anthropic => "sk-ant-…",
             Self::OpenAi | Self::DeepSeek => "sk-…",
+            Self::Gemini => "AIza…",
         }
     }
 }
@@ -113,7 +125,7 @@ mod tests {
     #[test]
     fn serializes_with_stable_names() {
         let names: Vec<String> = Provider::ALL.iter().map(|p| serde_json::to_string(p).unwrap()).collect();
-        assert_eq!(names, ["\"anthropic\"", "\"openai\"", "\"deepseek\""]);
+        assert_eq!(names, ["\"anthropic\"", "\"openai\"", "\"gemini\"", "\"deepseek\""]);
         assert_eq!(Provider::OpenAi.model_name("my-model"), "my-model");
     }
 }

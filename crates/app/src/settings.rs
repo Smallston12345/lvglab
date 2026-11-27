@@ -127,6 +127,9 @@ pub struct AppSettings {
     /// DeepSeek API key; empty uses the `DEEPSEEK_API_KEY` environment variable.
     pub ai_deepseek_key: String,
     pub ai_deepseek_model: String,
+    /// Google API key; empty uses the `GEMINI_API_KEY` environment variable.
+    pub ai_gemini_key: String,
+    pub ai_gemini_model: String,
     pub ai_effort: String,
     pub recent: Vec<PathBuf>,
     /// Choices of the last new project, offered again.
@@ -174,6 +177,8 @@ impl Default for AppSettings {
             ai_openai_model: lvglab_ai::Provider::OpenAi.default_model().to_owned(),
             ai_deepseek_key: String::new(),
             ai_deepseek_model: lvglab_ai::Provider::DeepSeek.default_model().to_owned(),
+            ai_gemini_key: String::new(),
+            ai_gemini_model: lvglab_ai::Provider::Gemini.default_model().to_owned(),
             ai_effort: "medium".to_owned(),
             recent: Vec::new(),
             new_project: NewProjectDefaults::default(),
@@ -195,7 +200,8 @@ impl AppSettings {
         let ai_api_key = std::mem::take(&mut self.ai_api_key);
         let ai_openai_key = std::mem::take(&mut self.ai_openai_key);
         let ai_deepseek_key = std::mem::take(&mut self.ai_deepseek_key);
-        *self = Self { recent, ai_api_key, ai_openai_key, ai_deepseek_key, ..Self::default() };
+        let ai_gemini_key = std::mem::take(&mut self.ai_gemini_key);
+        *self = Self { recent, ai_api_key, ai_openai_key, ai_deepseek_key, ai_gemini_key, ..Self::default() };
     }
 
     /// The configured API key of a provider (may be empty).
@@ -204,6 +210,7 @@ impl AppSettings {
             lvglab_ai::Provider::Anthropic => &mut self.ai_api_key,
             lvglab_ai::Provider::OpenAi => &mut self.ai_openai_key,
             lvglab_ai::Provider::DeepSeek => &mut self.ai_deepseek_key,
+            lvglab_ai::Provider::Gemini => &mut self.ai_gemini_key,
         }
     }
 
@@ -213,6 +220,7 @@ impl AppSettings {
             lvglab_ai::Provider::Anthropic => &mut self.ai_model,
             lvglab_ai::Provider::OpenAi => &mut self.ai_openai_model,
             lvglab_ai::Provider::DeepSeek => &mut self.ai_deepseek_model,
+            lvglab_ai::Provider::Gemini => &mut self.ai_gemini_model,
         }
     }
 
@@ -222,6 +230,7 @@ impl AppSettings {
             lvglab_ai::Provider::Anthropic => &self.ai_model,
             lvglab_ai::Provider::OpenAi => &self.ai_openai_model,
             lvglab_ai::Provider::DeepSeek => &self.ai_deepseek_model,
+            lvglab_ai::Provider::Gemini => &self.ai_gemini_model,
         }
     }
 
@@ -230,6 +239,7 @@ impl AppSettings {
             lvglab_ai::Provider::Anthropic => &self.ai_api_key,
             lvglab_ai::Provider::OpenAi => &self.ai_openai_key,
             lvglab_ai::Provider::DeepSeek => &self.ai_deepseek_key,
+            lvglab_ai::Provider::Gemini => &self.ai_gemini_key,
         }
     }
 
@@ -326,6 +336,9 @@ mod tests {
         settings.ai_provider = lvglab_ai::Provider::DeepSeek;
         assert_eq!(settings.ai_config().model, lvglab_ai::Provider::DeepSeek.default_model());
         settings.reset();
+        *settings.key_mut(lvglab_ai::Provider::Gemini) = "gemini".into();
+        settings.reset();
+        assert_eq!(settings.ai_gemini_key, "gemini");
         assert_eq!(settings.ai_openai_key, "openai", "reset keeps the keys");
         assert_eq!(settings.ai_api_key, "anthropic");
     }

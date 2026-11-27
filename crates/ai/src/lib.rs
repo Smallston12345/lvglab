@@ -1,16 +1,18 @@
-//! AI assistant of LVGLab: describes the project to a model (Claude, GPT or
-//! DeepSeek), asks for a UI design in a fixed JSON schema and applies the
+//! AI assistant of LVGLab: describes the project to a model (Claude, GPT,
+//! Gemini or DeepSeek), asks for a UI design in a fixed JSON schema and applies the
 //! answer to the project.
 //!
 //! * [`prompt`] builds the cached system prompt (widget catalog reference)
 //!   and the per-request context.
-//! * [`client`] talks to the Claude Messages API, [`openai`] to services with
-//!   the OpenAI Chat Completions format; [`provider`] lists the services.
+//! * [`client`] talks to the Claude Messages API, [`gemini`] to the Gemini
+//!   API and [`openai`] to services with the OpenAI Chat Completions format;
+//!   [`provider`] lists the services.
 //! * [`spec`] / [`convert`] define the exchanged format and turn it into
 //!   validated widgets.
 
 pub mod client;
 pub mod convert;
+pub mod gemini;
 pub mod openai;
 pub mod prompt;
 pub mod provider;
@@ -36,5 +38,6 @@ pub fn request(
     match config.provider {
         Provider::Anthropic => client::generate(config, &system, &user, on_progress),
         Provider::OpenAi | Provider::DeepSeek => openai::generate(config, &system, &user, on_progress),
+        Provider::Gemini => gemini::generate(config, &system, &user, on_progress),
     }
 }

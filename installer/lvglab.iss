@@ -18,7 +18,7 @@
 
 #define AppName "LVGLab"
 #define AppExe "lvglab.exe"
-#define AppUrl "https://github.com/bluecraank/lvglab"
+#define AppUrl "https://github.com/Smallston12345/lvglab"
 
 [Setup]
 AppId={{FB82365D-BD6C-4420-9CCA-BEE17958D28A}

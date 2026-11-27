@@ -67,7 +67,7 @@ pub fn show(ctx: &egui::Context, studio: &mut Studio) {
         ui.set_width(780.0);
         ui.horizontal(|ui| {
             ui.label(RichText::new("LVGLab").size(26.0).strong().color(ACCENT));
-            ui.label(RichText::new(env!("CARGO_PKG_VERSION")).color(palette.muted));
+            ui.label(RichText::new(crate::updates::version()).color(palette.muted));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if close_button(ui, 32.0).on_hover_text(tr("Close")).clicked() {
                     close = true;

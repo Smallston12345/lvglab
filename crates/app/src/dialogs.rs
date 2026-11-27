@@ -451,7 +451,7 @@ fn about(ctx: &egui::Context, studio: &mut Studio) {
     if !studio.show_about {
         return;
     }
-    let title = format!("LVGLab {}", env!("CARGO_PKG_VERSION"));
+    let title = format!("LVGLab {}", crate::updates::version());
     let actions = [Action::primary(tr("Close"))];
     let choice =
         modal::show(ctx, "about", Tone::Info, &title, tr("UI designer for LVGL 8 and 9 on ESP32."), &actions, |ui| {
