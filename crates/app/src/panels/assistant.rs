@@ -20,11 +20,7 @@ pub fn show(ui: &mut egui::Ui, studio: &mut Studio) {
     let model = provider.model_name(studio.settings.model());
     ui.horizontal(|ui| {
         ui.label(RichText::new(tr("AI assistant")).strong());
-        if provider.uses_effort() {
-            muted(ui, format!("{model} · {}", tr(effort_label(&studio.settings.ai_effort))));
-        } else {
-            muted(ui, model);
-        }
+        muted(ui, format!("{model} · {}", tr(effort_label(&studio.settings.ai_effort))));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.small_button(crate::icons::GEAR).on_hover_text(tr("Preferences")).clicked() {
                 studio.show_preferences = true;

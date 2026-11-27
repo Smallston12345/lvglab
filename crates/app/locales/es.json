@@ -929,6 +929,5 @@
   "Provider": "Proveedor",
   "The AI service that builds the interface. Each one has its own API key and model.": "El servicio de IA que crea la interfaz. Cada uno tiene su propia clave de API y su propio modelo.",
   "Other model ID": "Otro ID de modelo",
-  "Effort is not used by this provider.": "Este proveedor no usa el esfuerzo.",
   "This provider does not enforce the answer format, so answers fail more often. Try again or use a more capable model.": "Este proveedor no impone el formato de respuesta, por lo que las respuestas fallan más a menudo. Inténtalo de nuevo o usa un modelo más capaz."
 }

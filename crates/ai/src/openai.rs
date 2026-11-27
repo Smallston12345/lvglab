@@ -49,7 +49,9 @@ pub fn request_body(config: &Config, system: &str, user: &str) -> Value {
         body["response_format"] = json!({ "type": "json_object" });
         body["max_tokens"] = json!(MAX_TOKENS);
     }
-    if provider.uses_effort() && !config.effort.is_empty() {
+    // DeepSeek thinks by default and maps the levels itself
+    // (low → low, medium/high/xhigh → high, max → max).
+    if !config.effort.is_empty() {
         body["reasoning_effort"] = json!(config.effort);
     }
     body
@@ -196,7 +198,7 @@ mod tests {
     fn deepseek_body_uses_json_mode_with_schema_in_prompt() {
         let body = request_body(&config(Provider::DeepSeek), "sys", "user");
         assert_eq!(body["response_format"]["type"], "json_object");
-        assert!(body.get("reasoning_effort").is_none());
+        assert_eq!(body["reasoning_effort"], "high");
         assert!(body.get("max_tokens").is_some());
         let system = body["messages"][0]["content"].as_str().unwrap();
         // JSON mode needs the word "json" in the prompt.

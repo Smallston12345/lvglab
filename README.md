@@ -292,8 +292,9 @@ How it works:
   widget, property, style, parent and event against the widget catalog. Problems are listed as notes,
   never applied blindly.
 - Every answer becomes one step in the timeline (`AI: …`), so Ctrl+Z undoes it.
-- Model and effort can be changed in the preferences (effort is sent as `reasoning_effort` to OpenAI and
-  not used by DeepSeek). For Claude safety declines, the server-side fallback is enabled.
+- Model and effort can be changed in the preferences (sent as `reasoning_effort` to OpenAI and DeepSeek;
+  DeepSeek maps medium to very thorough to its `high` level). For Claude safety declines, the server-side
+  fallback is enabled.
 - Requests are billed to your account with the provider. The keys are stored in the editor settings on your computer.
 
 ## Importing SquareLine Studio projects

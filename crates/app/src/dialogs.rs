@@ -375,18 +375,11 @@ fn preferences(ctx: &egui::Context, studio: &mut Studio) {
                     );
                     ui.end_row();
                     label(ui, tr("Effort"), tr("How thoroughly the model works on a request; higher takes longer."));
-                    if provider.uses_effort() {
-                        egui::ComboBox::from_id_salt("ai_effort").selected_text(tr(effort_label(&s.ai_effort))).show_ui(
-                            ui,
-                            |ui| {
-                                for effort in lvglab_ai::EFFORTS {
-                                    ui.selectable_value(&mut s.ai_effort, (*effort).to_owned(), tr(effort_label(effort)));
-                                }
-                            },
-                        );
-                    } else {
-                        muted(ui, tr("Effort is not used by this provider."));
-                    }
+                    egui::ComboBox::from_id_salt("ai_effort").selected_text(tr(effort_label(&s.ai_effort))).show_ui(ui, |ui| {
+                        for effort in lvglab_ai::EFFORTS {
+                            ui.selectable_value(&mut s.ai_effort, (*effort).to_owned(), tr(effort_label(effort)));
+                        }
+                    });
                     ui.end_row();
                 });
                 let provider = s.ai_provider;

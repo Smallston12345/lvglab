@@ -63,11 +63,6 @@ impl Provider {
         self != Self::Anthropic
     }
 
-    /// Whether the effort setting is sent with the request.
-    pub fn uses_effort(self) -> bool {
-        self != Self::DeepSeek
-    }
-
     /// Whether the service enforces the answer's JSON schema. Without it the
     /// schema is described in the prompt and answers fail more often.
     pub fn enforces_schema(self) -> bool {
