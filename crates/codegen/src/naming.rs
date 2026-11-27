@@ -4,7 +4,7 @@
 //! `ui_Main01`, `ui_Main01_screen_init`, `ui_img_logo_png`, `ui_font_Big40`,
 //! `_ui_flag_modify`, `UI_THEME_DEFAULT`, `_ui_theme_color_Main`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use lvglab_model::style::builtin_font_size;
@@ -24,6 +24,9 @@ pub struct Naming {
     vars: HashMap<WidgetId, String>,
     /// Image asset name → C symbol.
     images: HashMap<String, String>,
+    /// Built-in Montserrat sizes that get a Chinese companion font, which
+    /// styles reference instead (see [`crate::cjk`]).
+    cjk_builtin: BTreeSet<u16>,
 }
 
 impl Naming {
@@ -68,7 +71,23 @@ impl Naming {
                 (asset.name.clone(), format!("{prefix}_img_{}", c_ident(&stem)))
             })
             .collect();
-        Self { prefix, vars, images }
+        let cjk_builtin = crate::glyphs::cjk_plan(project).builtin.into_keys().collect();
+        Self { prefix, vars, images, cjk_builtin }
+    }
+
+    /// Companion font of built-in Montserrat `size` (`ui_font_cjk_20`).
+    pub fn cjk_builtin_font(&self, size: u16) -> String {
+        format!("{}_font_cjk_{size}", self.prefix)
+    }
+
+    /// Companion font of a font asset (`ui_font_Big_cjk`).
+    pub fn cjk_asset_font(&self, name: &str) -> String {
+        format!("{}_cjk", self.font(name))
+    }
+
+    /// Whether built-in Montserrat `size` is replaced by its companion font.
+    pub fn has_cjk_builtin(&self, size: u16) -> bool {
+        self.cjk_builtin.contains(&size)
     }
 
     pub fn prefix(&self) -> &str {
@@ -126,6 +145,7 @@ impl Naming {
     /// C expression for a font reference used in styles.
     pub fn font_ref(&self, name: &str) -> String {
         match builtin_font_size(name) {
+            Some(size) if self.has_cjk_builtin(size) => format!("&{}", self.cjk_builtin_font(size)),
             Some(size) => format!("&lv_font_montserrat_{size}"),
             None => format!("&{}", self.font(name)),
         }

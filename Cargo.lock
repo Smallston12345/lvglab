@@ -1717,6 +1717,7 @@ dependencies = [
 name = "lvglab-codegen"
 version = "0.15.0"
 dependencies = [
+ "ab_glyph",
  "fontdue",
  "image",
  "lvglab-model",

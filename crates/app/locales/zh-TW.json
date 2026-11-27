@@ -929,5 +929,8 @@
   "Provider": "服務商",
   "The AI service that builds the interface. Each one has its own API key and model.": "負責建立介面的 AI 服務。每個服務都有各自的 API 金鑰與模型。",
   "Other model ID": "其他模型 ID",
-  "This provider does not enforce the answer format, so answers fail more often. Try again or use a more capable model.": "此服務商不會強制回覆格式，因此回覆較容易失敗。請再試一次，或改用能力較強的模型。"
+  "This provider does not enforce the answer format, so answers fail more often. Try again or use a more capable model.": "此服務商不會強制回覆格式，因此回覆較容易失敗。請再試一次，或改用能力較強的模型。",
+  "Chinese fallback": "中文備援字型",
+  "Characters a font lacks are taken from the embedded Noto Sans CJK TC. Only the characters the texts use are exported, as a font LVGL falls back to.": "字型缺少的字元會改用內建的 Noto Sans CJK TC。只會匯出文字實際用到的字元，作為 LVGL 的備援字型。",
+  "Embed missing characters": "內嵌缺少的字元"
 }

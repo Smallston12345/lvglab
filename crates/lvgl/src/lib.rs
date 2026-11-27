@@ -125,6 +125,12 @@ pub fn render_screen(project: &Project, index: usize, project_dir: Option<&Path>
                 let address = font.address(glyph_dsc, glyph_bitmap);
                 interpreter.add_symbol(&font.name, address);
             }
+            // Fallbacks (e.g. the Chinese companion fonts) once every font has its address.
+            for font in &mut fonts {
+                if let Some(address) = font.fallback.as_deref().and_then(|name| interpreter.symbol(name)) {
+                    font.set_fallback(address);
+                }
+            }
         }
         interpreter.only_screen = Some(screen_init);
         interpreter.call("ui_init", &[]);
@@ -218,6 +224,12 @@ fn render_v9(
             if !handle.is_null() {
                 interpreter.add_symbol(&font.name, handle as usize);
                 handles.push((handle, true));
+            }
+        }
+        for font in &fonts {
+            let fallback = font.fallback.as_deref().and_then(|name| interpreter.symbol(name));
+            if let (Some(own), Some(fallback)) = (interpreter.symbol(&font.name), fallback) {
+                ffi::lvglab9_font_set_fallback(own as *mut std::ffi::c_void, fallback as *const std::ffi::c_void);
             }
         }
         interpreter.only_screen = Some(screen_init);

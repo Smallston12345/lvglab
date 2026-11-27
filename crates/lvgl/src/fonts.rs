@@ -25,6 +25,8 @@ pub struct Font {
     /// The tables as read, for LVGL 9 (which builds its own structs).
     pub glyph_list: Vec<Glyph>,
     pub cmap_list: Vec<Cmap>,
+    /// The font LVGL uses for glyphs this one lacks (`.fallback = &name`).
+    pub fallback: Option<String>,
 }
 
 /// One glyph: bitmap index, advance (8.4), box size and offset. Same layout as `lvglab_glyph` in shim9.c.
@@ -125,6 +127,9 @@ pub fn parse_fonts(sources: &[&str]) -> Vec<Font> {
             continue;
         };
         let bpp = number(source, ".bpp").unwrap_or(4) as u16;
+        let fallback = head.find(".fallback = &").map(|at| {
+            head[at + ".fallback = &".len()..].chars().take_while(|c| c.is_ascii_alphanumeric() || *c == '_').collect()
+        });
         if bitmap.is_empty() || glyphs.is_empty() || cmaps.is_empty() {
             continue;
         }
@@ -144,6 +149,7 @@ pub fn parse_fonts(sources: &[&str]) -> Vec<Font> {
             cmap_count,
             glyph_list,
             cmap_list,
+            fallback,
         });
     }
     fonts
@@ -188,6 +194,11 @@ impl Font {
         font[24..32].copy_from_slice(&pointer(self.dsc.as_ptr()));
         self.font.as_ptr() as usize
     }
+
+    /// Sets `lv_font_t.fallback` (LVGL 8.3, 64 bit) after [`Self::address`].
+    pub fn set_fallback(&mut self, address: usize) {
+        self.font[32..40].copy_from_slice(&(address as u64).to_le_bytes());
+    }
 }
 
 #[cfg(test)]
@@ -213,5 +224,18 @@ mod tests {
         assert_eq!(&font.glyphs[12..16], &[3, 18, 0xFE, 1]);
         assert_ne!(font.address(1, 2), 0);
         assert_eq!(i16::from_le_bytes(font.font[16..18].try_into().unwrap()), 27);
+        assert_eq!(font.fallback, None);
+        font.set_fallback(0x1234);
+        assert_eq!(u64::from_le_bytes(font.font[32..40].try_into().unwrap()), 0x1234);
+    }
+
+    #[test]
+    fn the_fallback_is_read() {
+        let source = "static const uint8_t glyph_bitmap[] = {\n    0x12,\n};\n\
+            static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {\n    {.bitmap_index = 0, .adv_w = 0, .box_w = 0, .box_h = 0, .ofs_x = 0, .ofs_y = 0},\n};\n\
+            static const lv_font_fmt_txt_cmap_t cmaps[] = {\n    {.range_start = 21147, .range_length = 1, .glyph_id_start = 1, .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY},\n};\n\
+            const lv_font_t ui_font_cjk_20 = {\n    .line_height = 22,\n    .base_line = 4,\n    .dsc = &font_dsc,\n    .fallback = &lv_font_montserrat_20,\n    .user_data = NULL,\n};\n";
+        let fonts = parse_fonts(&[source]);
+        assert_eq!(fonts[0].fallback.as_deref(), Some("lv_font_montserrat_20"));
     }
 }

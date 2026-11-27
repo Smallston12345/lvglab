@@ -108,14 +108,42 @@ struct Glyph {
     ofs_y: i32,
 }
 
+/// One rendered glyph: advance in pixels, bitmap size, offset of the bitmap's
+/// bottom left corner from the pen position (y up) and 8 bit coverage.
+pub(crate) struct RasterGlyph {
+    pub code_point: u32,
+    pub advance: f32,
+    pub width: usize,
+    pub height: usize,
+    pub xmin: i32,
+    pub ymin: i32,
+    pub coverage: Vec<u8>,
+}
+
+/// What the C file of a font is named and built with.
+pub(crate) struct FontSpec<'a> {
+    /// Name in the comment of the file.
+    pub name: &'a str,
+    /// The `lv_font_t` symbol.
+    pub symbol: &'a str,
+    pub size: f32,
+    pub bpp: u8,
+    pub header: &'a str,
+    pub include: &'a str,
+    /// C expression of the font used for missing glyphs (`&lv_font_montserrat_20`).
+    pub fallback: Option<&'a str>,
+}
+
 /// C source of a font. `symbol` names the `lv_font_t`, `include` is the
-/// header that provides LVGL.
+/// header that provides LVGL. `fallback` is the C expression of a font that
+/// LVGL uses for glyphs this one lacks.
 pub fn convert(
     font: &FontAsset,
     base_dir: Option<&Path>,
     symbol: &str,
     header: &str,
     include: &str,
+    fallback: Option<&str>,
 ) -> Result<String, FontError> {
     if font.path.trim().is_empty() {
         return Err(FontError::NoFile { name: font.name.clone() });
@@ -130,42 +158,65 @@ pub fn convert(
         _ => 4,
     };
     let points = code_points(&font.ranges, &font.symbols)?;
-    Ok(render(&font.name, symbol, &parsed, size, bpp, &points, header, include))
+    let spec = FontSpec { name: &font.name, symbol, size, bpp, header, include, fallback };
+    Ok(render(&spec, &parsed, &points))
 }
 
-#[allow(clippy::too_many_arguments)]
-fn render(
-    name: &str,
-    symbol: &str,
-    font: &fontdue::Font,
-    size: f32,
-    bpp: u8,
-    points: &[u32],
-    header: &str,
-    include: &str,
-) -> String {
-    let mut bitmap: Vec<u8> = Vec::new();
-    let mut glyphs = vec![Glyph { bitmap_index: 0, adv_w: 0, box_w: 0, box_h: 0, ofs_x: 0, ofs_y: 0 }];
-    let mut included = Vec::new();
+fn render(spec: &FontSpec<'_>, font: &fontdue::Font, points: &[u32]) -> String {
+    let mut glyphs = Vec::new();
     for &cp in points {
         let Some(ch) = char::from_u32(cp) else { continue };
         if font.lookup_glyph_index(ch) == 0 && ch != ' ' {
             continue;
         }
-        let (metrics, coverage) = font.rasterize(ch, size);
+        let (metrics, coverage) = font.rasterize(ch, spec.size);
+        glyphs.push(RasterGlyph {
+            code_point: cp,
+            advance: metrics.advance_width,
+            width: metrics.width,
+            height: metrics.height,
+            xmin: metrics.xmin,
+            ymin: metrics.ymin,
+            coverage,
+        });
+    }
+    let included: Vec<u32> = glyphs.iter().map(|g| g.code_point).collect();
+    let metrics = line_metrics(font, spec.size, &included);
+    emit(spec, &glyphs, metrics)
+}
+
+/// Line metrics spanning the bitmaps of `glyphs` (see [`line_metrics`]);
+/// `None` if no glyph is visible.
+pub(crate) fn glyph_line_metrics(glyphs: &[RasterGlyph]) -> Option<LineMetrics> {
+    let (mut top, mut bottom) = (i32::MIN, i32::MAX);
+    for g in glyphs.iter().filter(|g| g.width > 0 && g.height > 0) {
+        let y = g.ymin.clamp(-128, 127);
+        top = top.max(y + g.height.min(255) as i32);
+        bottom = bottom.min(y);
+    }
+    (top > bottom).then_some(LineMetrics { line_height: top - bottom, base_line: -bottom })
+}
+
+/// Writes the C source of a font from rendered glyphs (sorted by code point).
+pub(crate) fn emit(spec: &FontSpec<'_>, rendered: &[RasterGlyph], metrics: LineMetrics) -> String {
+    let FontSpec { name, symbol, size, bpp, header, include, fallback } = *spec;
+    let mut bitmap: Vec<u8> = Vec::new();
+    let mut glyphs = vec![Glyph { bitmap_index: 0, adv_w: 0, box_w: 0, box_h: 0, ofs_x: 0, ofs_y: 0 }];
+    let mut included = Vec::new();
+    for g in rendered {
         let bitmap_index = bitmap.len();
-        bitmap.extend(pack(&coverage, bpp));
+        bitmap.extend(pack(&g.coverage, bpp));
         glyphs.push(Glyph {
             bitmap_index,
-            adv_w: (metrics.advance_width * 16.0).round().max(0.0) as u32,
-            box_w: metrics.width.min(255),
-            box_h: metrics.height.min(255),
-            ofs_x: metrics.xmin.clamp(-128, 127),
-            ofs_y: metrics.ymin.clamp(-128, 127),
+            adv_w: (g.advance * 16.0).round().max(0.0) as u32,
+            box_w: g.width.min(255),
+            box_h: g.height.min(255),
+            ofs_x: g.xmin.clamp(-128, 127),
+            ofs_y: g.ymin.clamp(-128, 127),
         });
-        included.push(cp);
+        included.push(g.code_point);
     }
-    let LineMetrics { line_height, base_line } = line_metrics(font, size, &included);
+    let LineMetrics { line_height, base_line } = metrics;
 
     let mut out = String::new();
     out.push_str(header);
@@ -216,7 +267,8 @@ fn render(
     let _ = writeln!(out, "    .line_height = {line_height},");
     let _ = writeln!(out, "    .base_line = {base_line},");
     out.push_str("    .subpx = LV_FONT_SUBPX_NONE,\n    .underline_position = -1,\n    .underline_thickness = 1,\n");
-    out.push_str("    .dsc = &font_dsc,\n    .fallback = NULL,\n    .user_data = NULL,\n};\n");
+    let _ = writeln!(out, "    .dsc = &font_dsc,\n    .fallback = {},", fallback.unwrap_or("NULL"));
+    out.push_str("    .user_data = NULL,\n};\n");
     out
 }
 
@@ -285,7 +337,7 @@ mod tests {
         ];
         let Some(path) = candidates.iter().find(|p| Path::new(p).exists()) else { return };
         let asset = FontAsset { name: "Test".into(), path: (*path).into(), size: 20, ..FontAsset::default() };
-        let c = convert(&asset, None, "ui_font_Test", "// h\n", "ui.h").unwrap();
+        let c = convert(&asset, None, "ui_font_Test", "// h\n", "ui.h", None).unwrap();
         assert!(c.contains("const lv_font_t ui_font_Test = {"));
         assert!(c.contains(".bpp = 4,"));
         assert!(c.contains(".range_start = 32, .range_length = 95"));

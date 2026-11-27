@@ -10,6 +10,7 @@
 //! on disk without touching files the user owns.
 
 pub mod api;
+pub mod cjk;
 pub mod font;
 pub mod glyphs;
 pub mod image;
@@ -122,20 +123,30 @@ fn build_ui(project: &Project, project_dir: Option<&Path>) -> Output {
         decls.images.push((symbol, asset.path.clone()));
     }
 
+    // Characters the fonts lack but the embedded Chinese font has.
+    let plan = glyphs::cjk_plan(project);
     for asset in &project.assets.fonts {
         let symbol = names.font(&asset.name);
         let path = Project::resolve_path(project_dir, &asset.path);
+        let companion = plan.assets.get(&asset.name).map(|chars| (names.cjk_asset_font(&asset.name), chars));
+        let fallback = companion.as_ref().map(|(symbol, _)| format!("&{symbol}"));
         let key = format!(
-            "font|{}|{}|{}|{}|{}|{symbol}|{header}|{include}",
+            "font|{}|{}|{}|{}|{}|{symbol}|{header}|{include}|{fallback:?}",
             asset.name, asset.size, asset.bpp, asset.ranges, asset.symbols
         );
         let result = converted(key, &path, || {
-            font::convert(asset, project_dir, &symbol, &header, &include).map_err(|e| e.to_string())
+            font::convert(asset, project_dir, &symbol, &header, &include, fallback.as_deref())
+                .map_err(|e| e.to_string())
         });
         match result {
             Ok(code) => {
                 files.push(GeneratedFile::text(format!("{symbol}.c"), code, WritePolicy::Overwrite));
                 decls.fonts.push(symbol);
+                if let Some((companion, chars)) = companion {
+                    let code = cjk::render(&companion, asset.size, asset.bpp, chars, None, None, &header, &include);
+                    files.push(GeneratedFile::text(format!("{companion}.c"), code, WritePolicy::Overwrite));
+                    decls.fonts.push(companion);
+                }
             }
             Err(err) => {
                 let fallback = nearest_montserrat(asset.size);
@@ -146,6 +157,15 @@ fn build_ui(project: &Project, project_dir: Option<&Path>) -> Output {
                 ));
             }
         }
+    }
+
+    for (&size, chars) in &plan.builtin {
+        let companion = names.cjk_builtin_font(size);
+        let montserrat = format!("&lv_font_montserrat_{size}");
+        let code = cjk::render(&companion, size, 4, chars, Some(&montserrat), Some(size), &header, &include);
+        files.push(GeneratedFile::text(format!("{companion}.c"), code, WritePolicy::Overwrite));
+        decls.fonts.push(companion);
+        decls.montserrat.insert(size);
     }
 
     let sources = ui::generate(project, &decls);
@@ -208,6 +228,100 @@ fn missing_asset_warnings(project: &Project) -> Vec<String> {
 mod tests {
     use super::*;
     use lvglab_model::project::FontAsset;
+
+    /// A label with Chinese text in Montserrat 26, one with the theme's font
+    /// and one with a font asset (whose file is missing).
+    fn chinese_project() -> Project {
+        use lvglab_model::WidgetKind;
+        use lvglab_model::flags::StateMask;
+        use lvglab_model::prop::PropValue;
+        use lvglab_model::style::{StyleProp, StyleValue};
+        let mut project = Project::new("Grip");
+        let screen = project.screens[0].id;
+        let mut title = project.new_widget(WidgetKind::Label);
+        title.name = "TitleLabel".into();
+        title.set_prop("text", PropValue::Text("握力測量".into()));
+        title.styles.set("main", StateMask::DEFAULT, StyleProp::TextFont, StyleValue::Font("montserrat_26".into()));
+        project.insert(screen, 0, title).unwrap();
+        let mut name = project.new_widget(WidgetKind::Label);
+        name.name = "NameLabel1".into();
+        name.set_prop("text", PropValue::Text("左手握力 kg".into()));
+        project.insert(screen, 1, name).unwrap();
+        project
+    }
+
+    #[test]
+    fn chinese_texts_get_companion_fonts() {
+        let project = chinese_project();
+        let output = generate_ui(&project, None);
+        let file = |path: &str| {
+            output.files.iter().find(|f| f.path == path).map(GeneratedFile::contents_str).unwrap_or_default()
+        };
+        let cjk26 = file("ui_font_cjk_26.c");
+        assert!(cjk26.contains(".fallback = &lv_font_montserrat_26,"), "{cjk26}");
+        assert!(cjk26.contains("4 glyphs"));
+        let cjk14 = file("ui_font_cjk_14.c");
+        assert!(cjk14.contains(".fallback = &lv_font_montserrat_14,"));
+        assert!(cjk14.contains("4 glyphs"), "左手握力");
+        let header = file("ui.h");
+        assert!(
+            header.contains("LV_FONT_DECLARE(ui_font_cjk_26);") && header.contains("LV_FONT_DECLARE(ui_font_cjk_14);")
+        );
+        let screen = file("ui_Screen1.c");
+        assert!(screen.contains("&ui_font_cjk_26"), "{screen}");
+        // LVGL 8's theme does not give texts its font; the screen passes the companion on.
+        assert!(
+            screen
+                .contains("lv_obj_set_style_text_font(ui_Screen1, &ui_font_cjk_14, LV_PART_MAIN | LV_STATE_DEFAULT);")
+        );
+        assert!(!screen.contains("&lv_font_montserrat_26"));
+        let ui_c = file("ui.c");
+        assert!(ui_c.contains("false, &ui_font_cjk_14);") || ui_c.contains("true, &ui_font_cjk_14);"), "{ui_c}");
+        assert!(ui_c.contains("LV_FONT_MONTSERRAT_26") && ui_c.contains("LV_FONT_MONTSERRAT_14"));
+        assert!(output.warnings.iter().all(|w| !w.contains("has no glyphs")), "{:?}", output.warnings);
+
+        // Without the fallback the export stays as before and warns.
+        let mut plain = chinese_project();
+        plain.export.cjk_fallback = false;
+        let output = generate_ui(&plain, None);
+        assert!(output.files.iter().all(|f| !f.path.contains("cjk")));
+        assert_eq!(output.warnings.iter().filter(|w| w.contains("has no glyphs")).count(), 2);
+    }
+
+    #[test]
+    fn font_assets_fall_back_to_their_companion() {
+        let Some(path) = ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "C:/Windows/Fonts/arial.ttf"]
+            .into_iter()
+            .find(|p| Path::new(p).exists())
+        else {
+            return;
+        };
+        use lvglab_model::flags::StateMask;
+        use lvglab_model::style::{StyleProp, StyleValue};
+        let mut project = chinese_project();
+        project.assets.fonts.push(FontAsset {
+            name: "Sans".into(),
+            path: path.into(),
+            size: 20,
+            ..FontAsset::default()
+        });
+        let label = project.screens[0].children[1].id;
+        project.widget_mut(label).unwrap().styles.set(
+            "main",
+            StateMask::DEFAULT,
+            StyleProp::TextFont,
+            StyleValue::Font("Sans".into()),
+        );
+        let output = generate_ui(&project, None);
+        let file = |path: &str| {
+            output.files.iter().find(|f| f.path == path).map(GeneratedFile::contents_str).unwrap_or_default()
+        };
+        assert!(file("ui_font_Sans.c").contains(".fallback = &ui_font_Sans_cjk,"));
+        let companion = file("ui_font_Sans_cjk.c");
+        assert!(companion.contains(".fallback = NULL,") && companion.contains("4 glyphs"), "{companion}");
+        assert!(file("ui.h").contains("LV_FONT_DECLARE(ui_font_Sans_cjk);"));
+        assert!(output.files.iter().all(|f| f.path != "ui_font_cjk_14.c"), "the label uses Sans now");
+    }
 
     #[test]
     fn library_contains_all_parts() {

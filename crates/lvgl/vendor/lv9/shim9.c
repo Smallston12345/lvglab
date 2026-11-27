@@ -117,6 +117,11 @@ void *lvglab9_font_new(const uint8_t *bitmap, const lvglab_glyph *glyphs, uint32
     return f;
 }
 
+void lvglab9_font_set_fallback(void *font, const void *fallback)
+{
+    if (font) ((lv_font_t *)font)->fallback = fallback;
+}
+
 void lvglab9_font_free(void *font)
 {
     lv_font_t *f = font;

@@ -155,6 +155,13 @@ fn project_settings(ctx: &egui::Context, studio: &mut Studio) {
                     );
                     ui.checkbox(&mut p.export.multilang, tr("Translate with lv_i18n"));
                     ui.end_row();
+                    label(
+                        ui,
+                        tr("Chinese fallback"),
+                        tr("Characters a font lacks are taken from the embedded Noto Sans CJK TC. Only the characters the texts use are exported, as a font LVGL falls back to."),
+                    );
+                    ui.checkbox(&mut p.export.cjk_fallback, tr("Embed missing characters"));
+                    ui.end_row();
                     if p.lvgl_version.is_v9() {
                         label(
                             ui,

@@ -16,7 +16,7 @@ use std::fmt::Write as _;
 use lvglab_model::catalog::WidgetDef;
 use lvglab_model::compat;
 use lvglab_model::event::{Action, EventHandler, ModifyOp};
-use lvglab_model::flags::ObjFlag;
+use lvglab_model::flags::{ObjFlag, StateMask};
 use lvglab_model::layout::pixel_size;
 use lvglab_model::prop::{Emit, EmitWhen, PropDef, PropKind, PropValue};
 use lvglab_model::style::{Part, StyleProp, StyleValue};
@@ -323,6 +323,16 @@ impl<'c, 'a> ScreenGen<'c, 'a> {
         let screen_var = names.var(screen.id).to_owned();
         self.init.indent = 1;
         self.widget(screen, "NULL");
+        // Texts without a font of their own use Montserrat 14. LVGL 8's
+        // default theme does not apply its font to them, so the screen gets
+        // the Chinese companion and passes it on (text_font is inherited).
+        let own_font = screen.styles.get("main", StateMask::DEFAULT, StyleProp::TextFont).is_some();
+        if names.has_cjk_builtin(14) && !own_font {
+            self.init.line(&format!(
+                "lv_obj_set_style_text_font({screen_var}, &{}, LV_PART_MAIN | LV_STATE_DEFAULT);",
+                names.cjk_builtin_font(14)
+            ));
+        }
         for line in std::mem::take(&mut self.deferred) {
             self.init.line(&line);
         }
@@ -912,8 +922,15 @@ fn ui_c(ctx: &Context<'_>, assets: &AssetDecls) -> String {
         code.line(&format!("{} = lv_event_register_id();", names.component_event()));
     }
     code.line("lv_disp_t * dispp = lv_disp_get_default();");
+    // Texts without a font of their own use the theme's; it gets the Chinese
+    // companion too if they need it.
+    let default_font = if names.has_cjk_builtin(14) {
+        format!("&{}", names.cjk_builtin_font(14))
+    } else {
+        "LV_FONT_DEFAULT".to_owned()
+    };
     code.line(&format!(
-        "lv_theme_t * theme = lv_theme_default_init(dispp, lv_palette_main({}), lv_palette_main({}), {}, LV_FONT_DEFAULT);",
+        "lv_theme_t * theme = lv_theme_default_init(dispp, lv_palette_main({}), lv_palette_main({}), {}, {default_font});",
         project.theme.primary.c_const(),
         project.theme.secondary.c_const(),
         project.theme.dark

@@ -113,6 +113,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let img = project.screens[0].children.iter_mut().find(|w| w.kind == WidgetKind::Image).unwrap();
     img.styles.set("main", StateMask::DEFAULT, StyleProp::ImgRecolor, StyleValue::Theme("Accent".into()));
 
+    // Chinese text: the export adds fonts with just these characters that
+    // fall back to Montserrat 20 and to the font asset.
+    let mut chinese = project.new_widget(WidgetKind::Label);
+    chinese.name = "Chinese".into();
+    chinese.set_prop("text", PropValue::Text("握力測量：左手 kg".into()));
+    chinese.styles.set("main", StateMask::DEFAULT, StyleProp::TextFont, StyleValue::Font("montserrat_20".into()));
+    project.insert(screen, usize::MAX, chinese).map_err(|_| "insert failed")?;
+    if project.assets.font("Arial24").is_some() {
+        let mut chinese = project.new_widget(WidgetKind::Label);
+        chinese.name = "ChineseArial".into();
+        chinese.set_prop("text", PropValue::Text("右手 kg".into()));
+        chinese.styles.set("main", StateMask::DEFAULT, StyleProp::TextFont, StyleValue::Font("Arial24".into()));
+        project.insert(screen, usize::MAX, chinese).map_err(|_| "insert failed")?;
+    }
+
     let output = lvglab_codegen::generate_library(&project, None);
     for warning in &output.warnings {
         eprintln!("warning: {warning}");

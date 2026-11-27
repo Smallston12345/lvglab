@@ -150,6 +150,10 @@ pub struct ExportSettings {
     pub multilang: bool,
     /// Store image pixels byte swapped (`LV_COLOR_16_SWAP 1`).
     pub swap_bytes: bool,
+    /// Characters a font lacks are taken from the embedded Chinese font
+    /// (Noto Sans CJK TC): only those characters are exported, as a font
+    /// LVGL falls back to.
+    pub cjk_fallback: bool,
 }
 
 impl Default for ExportSettings {
@@ -160,6 +164,7 @@ impl Default for ExportSettings {
             prefix: "ui".to_owned(),
             multilang: false,
             swap_bytes: false,
+            cjk_fallback: true,
         }
     }
 }

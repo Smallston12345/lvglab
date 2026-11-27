@@ -929,5 +929,8 @@
   "Provider": "Proveedor",
   "The AI service that builds the interface. Each one has its own API key and model.": "El servicio de IA que crea la interfaz. Cada uno tiene su propia clave de API y su propio modelo.",
   "Other model ID": "Otro ID de modelo",
-  "This provider does not enforce the answer format, so answers fail more often. Try again or use a more capable model.": "Este proveedor no impone el formato de respuesta, por lo que las respuestas fallan más a menudo. Inténtalo de nuevo o usa un modelo más capaz."
+  "This provider does not enforce the answer format, so answers fail more often. Try again or use a more capable model.": "Este proveedor no impone el formato de respuesta, por lo que las respuestas fallan más a menudo. Inténtalo de nuevo o usa un modelo más capaz.",
+  "Chinese fallback": "Respaldo chino",
+  "Characters a font lacks are taken from the embedded Noto Sans CJK TC. Only the characters the texts use are exported, as a font LVGL falls back to.": "Los caracteres que le faltan a una fuente se toman de la Noto Sans CJK TC integrada. Solo se exportan los caracteres que usan los textos, como fuente de respaldo de LVGL.",
+  "Embed missing characters": "Incrustar los caracteres que faltan"
 }

@@ -12,9 +12,7 @@ pub fn fonts() -> FontDefinitions {
     // Bundle a Traditional Chinese fallback so the UI also works on systems
     // without CJK fonts. Keep the editor's Latin and icon fonts first.
     let name = "Noto Sans CJK TC";
-    fonts
-        .font_data
-        .insert(name.into(), FontData::from_static(include_bytes!("../assets/fonts/NotoSansCJKtc-Regular.otf")).into());
+    fonts.font_data.insert(name.into(), FontData::from_static(lvglab_codegen::cjk::NOTO_SANS_CJK_TC).into());
     for family in [FontFamily::Proportional, FontFamily::Monospace] {
         fonts.families.entry(family).or_default().push(name.into());
     }

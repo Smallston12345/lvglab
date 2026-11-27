@@ -27,6 +27,7 @@ unsafe extern "C" {
         bpp: c_int,
     ) -> *mut std::ffi::c_void;
     pub fn lvglab9_font_free(font: *mut std::ffi::c_void);
+    pub fn lvglab9_font_set_fallback(font: *mut std::ffi::c_void, fallback: *const std::ffi::c_void);
     pub fn lvglab9_image_new(cf: u32, w: u32, h: u32, stride: u32, data: *const u8, size: u32)
     -> *mut std::ffi::c_void;
     pub fn lvglab9_image_free(image: *mut std::ffi::c_void);
