@@ -1,4 +1,4 @@
-//! The AI assistant panel: describe a UI, Claude builds it.
+//! The AI assistant panel: describe a UI, the selected model builds it.
 
 use eframe::egui::{self, Color32, Frame, Key, Margin, RichText};
 
@@ -16,10 +16,15 @@ const EXAMPLES: &[&str] = &[
 ];
 
 pub fn show(ui: &mut egui::Ui, studio: &mut Studio) {
-    let model = lvglab_ai::MODELS.iter().find(|(id, _)| *id == studio.settings.ai_model).map_or("", |(_, name)| *name);
+    let provider = studio.settings.ai_provider;
+    let model = provider.model_name(studio.settings.model());
     ui.horizontal(|ui| {
         ui.label(RichText::new(tr("AI assistant")).strong());
-        muted(ui, format!("{model} · {}", tr(effort_label(&studio.settings.ai_effort))));
+        if provider.uses_effort() {
+            muted(ui, format!("{model} · {}", tr(effort_label(&studio.settings.ai_effort))));
+        } else {
+            muted(ui, model);
+        }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.small_button(crate::icons::GEAR).on_hover_text(tr("Preferences")).clicked() {
                 studio.show_preferences = true;
@@ -50,12 +55,16 @@ fn key_hint(ui: &mut egui::Ui, studio: &mut Studio) {
     Frame::new().fill(ACCENT.gamma_multiply(0.12)).corner_radius(8).inner_margin(Margin::same(10)).show(ui, |ui| {
         ui.set_width(ui.available_width());
         ui.label(RichText::new(tr("Connect the assistant")).strong());
-        ui.label(tr("The assistant uses Claude by Anthropic. Enter your API key in the preferences, or set the environment variable ANTHROPIC_API_KEY."));
+        let provider = studio.settings.ai_provider;
+        ui.label(trf(
+            "The assistant uses {}. Enter your API key in the preferences, or set the environment variable {}.",
+            &[&provider.name(), &provider.env_var()],
+        ));
         ui.horizontal(|ui| {
             if ui.button(tr("Open preferences")).clicked() {
                 studio.show_preferences = true;
             }
-            ui.hyperlink_to(tr("Get an API key"), "https://console.anthropic.com/settings/keys");
+            ui.hyperlink_to(tr("Get an API key"), provider.key_url());
         });
     });
     ui.add_space(6.0);
@@ -177,6 +186,6 @@ fn composer(ui: &mut egui::Ui, studio: &mut Studio) {
                 studio.start_assistant(ui.ctx());
             }
         }
-        muted(ui, tr("Project data is sent to Anthropic."));
+        muted(ui, trf("Project data is sent to {}.", &[&studio.settings.ai_provider.company()]));
     });
 }

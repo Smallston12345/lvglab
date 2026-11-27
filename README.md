@@ -116,7 +116,7 @@ Design screens visually, import existing **SquareLine Studio** projects, and LVG
   to a theme color follow `ui_theme_set()` at runtime.
   A theme color marked **Runtime** is exported without `const`: the application can write a new value
   (e.g. `_ui_theme_color_UserColor[UI_THEME_DEFAULT] = 0x00C853;`) and call `ui_theme_set()` to apply it.
-- **AI assistant**: describe a screen and Claude builds it, validated against the widget catalog.
+- **AI assistant**: describe a screen and Claude, GPT or DeepSeek builds it, validated against the widget catalog.
 - Multi language UI (English, German, Spanish, French, Traditional Chinese for Taiwan), light and dark appearance.
 - Project settings: LVGL version, resolution (with presets), round or rectangular display.
 - **Themes** tab next to the parameters: lv_theme_default (dark or light, primary and secondary color) and the color themes.
@@ -268,10 +268,18 @@ Keyboard shortcuts:
 ## AI assistant
 
 The **AI assistant** panel builds interfaces from a description, e.g. *"Settings screen with three
-switches and a back button"* or *"make all buttons rounder"*. It uses Claude by Anthropic.
+switches and a back button"* or *"make all buttons rounder"*. It works with three services:
 
-1. Create an API key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
-2. Enter it under **Edit → Preferences → AI assistant**, or set the environment variable `ANTHROPIC_API_KEY`.
+| Provider | API key | Environment variable | Models in the list |
+|---|---|---|---|
+| Anthropic (Claude) | [console.anthropic.com](https://console.anthropic.com/settings/keys) | `ANTHROPIC_API_KEY` | Claude Opus 5.5, Sonnet 5.5, Haiku 5.5 |
+| OpenAI (GPT) | [platform.openai.com](https://platform.openai.com/api-keys) | `OPENAI_API_KEY` | GPT-6.2 Astra, GPT-6.2 Sol |
+| DeepSeek | [platform.deepseek.com](https://platform.deepseek.com/api_keys) | `DEEPSEEK_API_KEY` | DeepSeek V4 Pro, DeepSeek Flash |
+
+1. Create an API key with the provider.
+2. Under **Edit → Preferences → AI assistant**, choose the **Provider** and enter its key (or set its
+   environment variable). Each provider keeps its own key and model; for OpenAI and DeepSeek another
+   model ID can be typed in below the model list.
 3. Choose **Change current screen** or **New screen**, describe what you want and press **Send** (Ctrl+Enter).
 
 How it works:
@@ -279,13 +287,14 @@ How it works:
 - The request contains the display size and shape, the theme, the project's fonts and images, the
   screen names and, when changing a screen, that screen's current content. A reference of all widgets,
   properties and style properties is sent as a cached system prompt.
-- The model answers with a JSON document in a fixed schema (structured output). LVGLab validates every
+- The model answers with a JSON document in a fixed schema (structured output; DeepSeek only offers JSON
+  mode, so there the schema is part of the prompt and answers fail more often). LVGLab validates every
   widget, property, style, parent and event against the widget catalog. Problems are listed as notes,
   never applied blindly.
 - Every answer becomes one step in the timeline (`AI: …`), so Ctrl+Z undoes it.
-- Model (default Claude Opus 5.5, also Sonnet 5.5 and Haiku 5.5) and effort can be changed in the preferences.
-  For safety declines, the server-side fallback is enabled.
-- Requests are billed to your Anthropic account. The key is stored in the editor settings on your computer.
+- Model and effort can be changed in the preferences (effort is sent as `reasoning_effort` to OpenAI and
+  not used by DeepSeek). For Claude safety declines, the server-side fallback is enabled.
+- Requests are billed to your account with the provider. The keys are stored in the editor settings on your computer.
 
 ## Importing SquareLine Studio projects
 
@@ -529,7 +538,7 @@ crates/
 ├── model     lvglab-model    document model: widgets, catalog, styles, events, theme, layout
 ├── spj       lvglab-spj      SquareLine Studio importer
 ├── codegen   lvglab-codegen  C code, image and font conversion, library export
-├── ai        lvglab-ai     AI assistant: prompt, Claude API client, design schema and validation
+├── ai        lvglab-ai     AI assistant: prompt, Claude and OpenAI-format API clients, design schema and validation
 ├── lvgl      lvglab-lvgl   LVGL 8.3 and 9.6 (vendored; LVGL 9 symbols prefixed lv9_) plus an interpreter for the generated C: the LVGL preview
 └── app       lvglab  egui desktop application
 ```

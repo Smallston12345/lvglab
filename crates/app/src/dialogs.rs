@@ -7,7 +7,7 @@ use lvglab_model::project::{DisplaySettings, DisplayShape, LvglVersion};
 use crate::app::Studio;
 use crate::assistant::effort_label;
 use crate::commands::Command;
-use crate::i18n::{self, Language, tr};
+use crate::i18n::{self, Language, tr, trf};
 use crate::modal::{self, Action, Tone};
 use crate::settings::{Appearance, CanvasBackground, PreviewRenderer};
 use crate::visuals;
@@ -329,33 +329,83 @@ fn preferences(ctx: &egui::Context, studio: &mut Studio) {
             });
             card(&mut cols[1], crate::icons::CHAT_TEXT, tr("AI assistant"), |ui| {
                 grid(ui, "prefs_ai_grid", |ui| {
-                    label(ui, tr("API key"), tr("Anthropic API key. Stored in the editor settings on this computer."));
-                    ui.horizontal(|ui| {
-                        ui.add(egui::TextEdit::singleline(&mut s.ai_api_key).password(true).hint_text("sk-ant-…").desired_width(220.0));
-                        ui.hyperlink_to(tr("Get an API key"), "https://console.anthropic.com/settings/keys");
-                    });
-                    ui.end_row();
-                    label(ui, tr("Model"), tr("More capable models build better interfaces but cost more."));
-                    egui::ComboBox::from_id_salt("ai_model")
-                        .selected_text(lvglab_ai::MODELS.iter().find(|(id, _)| *id == s.ai_model).map_or("", |(_, n)| *n))
-                        .show_ui(ui, |ui| {
-                            for (id, name) in lvglab_ai::MODELS {
-                                ui.selectable_value(&mut s.ai_model, (*id).to_owned(), *name);
-                            }
-                        });
-                    ui.end_row();
-                    label(ui, tr("Effort"), tr("How thoroughly the model works on a request; higher takes longer."));
-                    egui::ComboBox::from_id_salt("ai_effort").selected_text(tr(effort_label(&s.ai_effort))).show_ui(ui, |ui| {
-                        for effort in lvglab_ai::EFFORTS {
-                            ui.selectable_value(&mut s.ai_effort, (*effort).to_owned(), tr(effort_label(effort)));
+                    label(
+                        ui,
+                        tr("Provider"),
+                        tr("The AI service that builds the interface. Each one has its own API key and model."),
+                    );
+                    egui::ComboBox::from_id_salt("ai_provider").selected_text(s.ai_provider.name()).show_ui(ui, |ui| {
+                        for provider in lvglab_ai::Provider::ALL {
+                            ui.selectable_value(&mut s.ai_provider, provider, provider.name());
                         }
                     });
                     ui.end_row();
+                    let provider = s.ai_provider;
+                    label(
+                        ui,
+                        tr("API key"),
+                        &trf("{} API key. Stored in the editor settings on this computer.", &[&provider.company()]),
+                    );
+                    ui.horizontal(|ui| {
+                        let key = s.key_mut(provider);
+                        ui.add(
+                            egui::TextEdit::singleline(key)
+                                .id_salt(("ai_key", provider))
+                                .password(true)
+                                .hint_text(provider.key_hint())
+                                .desired_width(220.0),
+                        );
+                        ui.hyperlink_to(tr("Get an API key"), provider.key_url());
+                    });
+                    ui.end_row();
+                    label(ui, tr("Model"), tr("More capable models build better interfaces but cost more."));
+                    let model = s.model_mut(provider);
+                    egui::ComboBox::from_id_salt(("ai_model", provider)).selected_text(provider.model_name(model)).show_ui(
+                        ui,
+                        |ui| {
+                            for (id, name) in provider.models() {
+                                ui.selectable_value(model, (*id).to_owned(), *name);
+                            }
+                            if provider.custom_models() {
+                                ui.separator();
+                                ui.label(tr("Other model ID"));
+                                ui.add(egui::TextEdit::singleline(model).id_salt(("ai_custom_model", provider)));
+                            }
+                        },
+                    );
+                    ui.end_row();
+                    label(ui, tr("Effort"), tr("How thoroughly the model works on a request; higher takes longer."));
+                    if provider.uses_effort() {
+                        egui::ComboBox::from_id_salt("ai_effort").selected_text(tr(effort_label(&s.ai_effort))).show_ui(
+                            ui,
+                            |ui| {
+                                for effort in lvglab_ai::EFFORTS {
+                                    ui.selectable_value(&mut s.ai_effort, (*effort).to_owned(), tr(effort_label(effort)));
+                                }
+                            },
+                        );
+                    } else {
+                        muted(ui, tr("Effort is not used by this provider."));
+                    }
+                    ui.end_row();
                 });
-                if s.ai_api_key.trim().is_empty() && std::env::var("ANTHROPIC_API_KEY").is_ok_and(|k| !k.is_empty()) {
-                    muted(ui, tr("Using the key from the environment variable ANTHROPIC_API_KEY."));
+                let provider = s.ai_provider;
+                if s.key_from_env(provider) {
+                    muted(ui, trf("Using the key from the environment variable {}.", &[&provider.env_var()]));
                 }
-                muted(ui, tr("Requests are billed to your Anthropic account. The project description is sent with each request."));
+                if !provider.enforces_schema() {
+                    ui.colored_label(
+                        visuals::WARNING,
+                        tr(crate::assistant::SCHEMA_HINT),
+                    );
+                }
+                muted(
+                    ui,
+                    trf(
+                        "Requests are billed to your {} account. The project description is sent with each request.",
+                        &[&provider.company()],
+                    ),
+                );
             });
             card(&mut cols[1], crate::icons::EXPORT, tr("Export"), |ui| {
                 ui.checkbox(&mut s.open_export_folder, tr("Open the folder after exporting"));

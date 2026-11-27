@@ -5,7 +5,7 @@ use std::sync::mpsc::{Receiver, TryRecvError, channel};
 use std::time::Instant;
 
 use eframe::egui;
-use lvglab_ai::{AiError, Answer, Config, Scope, Usage};
+use lvglab_ai::{AiError, Answer, Scope, Usage};
 use lvglab_model::WidgetId;
 
 use crate::app::Studio;
@@ -84,11 +84,7 @@ impl Studio {
         if request.is_empty() || self.assistant.is_running() || crate::sandbox::active() {
             return;
         }
-        let config = Config {
-            api_key: self.settings.api_key(),
-            model: self.settings.ai_model.clone(),
-            effort: self.settings.ai_effort.clone(),
-        };
+        let config = self.settings.ai_config();
         let target = self.assistant.target;
         let scope = match target {
             Target::CurrentScreen => Scope::EditScreen(self.screen),
@@ -137,7 +133,14 @@ impl Studio {
         self.assistant.job = None;
         let outcome = match result {
             Ok(answer) => self.apply_answer(answer, target),
-            Err(err) => Outcome::Failed(error_text(&err)),
+            Err(err) => {
+                let mut text = error_text(&err);
+                if matches!(err, AiError::InvalidAnswer(_)) && !self.settings.ai_provider.enforces_schema() {
+                    text.push(' ');
+                    text.push_str(tr(SCHEMA_HINT));
+                }
+                Outcome::Failed(text)
+            }
         };
         if let Some(last) = self.assistant.history.last_mut() {
             last.outcome = outcome;
@@ -177,6 +180,9 @@ fn first_words(text: &str, count: usize) -> String {
     }
     short
 }
+
+/// Shown for providers that do not enforce the answer's JSON schema.
+pub const SCHEMA_HINT: &str = "This provider does not enforce the answer format, so answers fail more often. Try again or use a more capable model.";
 
 /// User-facing name of an effort level (untranslated, pass through `tr`).
 pub fn effort_label(effort: &str) -> &'static str {

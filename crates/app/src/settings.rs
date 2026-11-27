@@ -115,9 +115,18 @@ pub struct AppSettings {
     /// Looks for a newer release on start.
     pub check_updates: bool,
     // AI assistant
+    /// The service the assistant uses.
+    pub ai_provider: lvglab_ai::Provider,
     /// Anthropic API key; empty uses the `ANTHROPIC_API_KEY` environment variable.
     pub ai_api_key: String,
+    /// Anthropic model.
     pub ai_model: String,
+    /// OpenAI API key; empty uses the `OPENAI_API_KEY` environment variable.
+    pub ai_openai_key: String,
+    pub ai_openai_model: String,
+    /// DeepSeek API key; empty uses the `DEEPSEEK_API_KEY` environment variable.
+    pub ai_deepseek_key: String,
+    pub ai_deepseek_model: String,
     pub ai_effort: String,
     pub recent: Vec<PathBuf>,
     /// Choices of the last new project, offered again.
@@ -158,8 +167,13 @@ impl Default for AppSettings {
             save_timeline: true,
             open_export_folder: false,
             check_updates: true,
+            ai_provider: lvglab_ai::Provider::Anthropic,
             ai_api_key: String::new(),
             ai_model: lvglab_ai::MODELS[0].0.to_owned(),
+            ai_openai_key: String::new(),
+            ai_openai_model: lvglab_ai::Provider::OpenAi.default_model().to_owned(),
+            ai_deepseek_key: String::new(),
+            ai_deepseek_model: lvglab_ai::Provider::DeepSeek.default_model().to_owned(),
             ai_effort: "medium".to_owned(),
             recent: Vec::new(),
             new_project: NewProjectDefaults::default(),
@@ -175,19 +189,75 @@ impl AppSettings {
         self.recent.truncate(MAX_RECENT);
     }
 
-    /// Restores the defaults but keeps the recent files and the API key.
+    /// Restores the defaults but keeps the recent files and the API keys.
     pub fn reset(&mut self) {
         let recent = std::mem::take(&mut self.recent);
         let ai_api_key = std::mem::take(&mut self.ai_api_key);
-        *self = Self { recent, ai_api_key, ..Self::default() };
+        let ai_openai_key = std::mem::take(&mut self.ai_openai_key);
+        let ai_deepseek_key = std::mem::take(&mut self.ai_deepseek_key);
+        *self = Self { recent, ai_api_key, ai_openai_key, ai_deepseek_key, ..Self::default() };
     }
 
-    /// The API key to use: the configured one or the environment variable.
+    /// The configured API key of a provider (may be empty).
+    pub fn key_mut(&mut self, provider: lvglab_ai::Provider) -> &mut String {
+        match provider {
+            lvglab_ai::Provider::Anthropic => &mut self.ai_api_key,
+            lvglab_ai::Provider::OpenAi => &mut self.ai_openai_key,
+            lvglab_ai::Provider::DeepSeek => &mut self.ai_deepseek_key,
+        }
+    }
+
+    /// The model of a provider.
+    pub fn model_mut(&mut self, provider: lvglab_ai::Provider) -> &mut String {
+        match provider {
+            lvglab_ai::Provider::Anthropic => &mut self.ai_model,
+            lvglab_ai::Provider::OpenAi => &mut self.ai_openai_model,
+            lvglab_ai::Provider::DeepSeek => &mut self.ai_deepseek_model,
+        }
+    }
+
+    /// The model of the selected provider.
+    pub fn model(&self) -> &str {
+        match self.ai_provider {
+            lvglab_ai::Provider::Anthropic => &self.ai_model,
+            lvglab_ai::Provider::OpenAi => &self.ai_openai_model,
+            lvglab_ai::Provider::DeepSeek => &self.ai_deepseek_model,
+        }
+    }
+
+    fn configured_key(&self, provider: lvglab_ai::Provider) -> &str {
+        match provider {
+            lvglab_ai::Provider::Anthropic => &self.ai_api_key,
+            lvglab_ai::Provider::OpenAi => &self.ai_openai_key,
+            lvglab_ai::Provider::DeepSeek => &self.ai_deepseek_key,
+        }
+    }
+
+    /// Whether the key of `provider` comes from its environment variable.
+    pub fn key_from_env(&self, provider: lvglab_ai::Provider) -> bool {
+        self.configured_key(provider).trim().is_empty()
+            && std::env::var(provider.env_var()).is_ok_and(|k| !k.trim().is_empty())
+    }
+
+    /// The API key to use for the selected provider: the configured one or
+    /// the provider's environment variable.
     pub fn api_key(&self) -> String {
-        if self.ai_api_key.trim().is_empty() {
-            std::env::var("ANTHROPIC_API_KEY").unwrap_or_default()
+        let provider = self.ai_provider;
+        let key = self.configured_key(provider).trim();
+        if key.is_empty() {
+            std::env::var(provider.env_var()).unwrap_or_default().trim().to_owned()
         } else {
-            self.ai_api_key.trim().to_owned()
+            key.to_owned()
+        }
+    }
+
+    /// Request settings for the assistant.
+    pub fn ai_config(&self) -> lvglab_ai::Config {
+        lvglab_ai::Config {
+            provider: self.ai_provider,
+            api_key: self.api_key(),
+            model: self.model().trim().to_owned(),
+            effort: self.ai_effort.clone(),
         }
     }
 
@@ -198,8 +268,12 @@ impl AppSettings {
         self.nudge_large = self.nudge_large.clamp(2, 200);
         self.history_limit = self.history_limit.clamp(20, 5000);
         self.autosave_minutes = self.autosave_minutes.min(120);
-        if !lvglab_ai::MODELS.iter().any(|(id, _)| *id == self.ai_model) {
-            self.ai_model = lvglab_ai::MODELS[0].0.to_owned();
+        for provider in lvglab_ai::Provider::ALL {
+            let model = self.model_mut(provider);
+            let known = provider.models().iter().any(|(id, _)| *id == model.as_str());
+            if model.trim().is_empty() || (!provider.custom_models() && !known) {
+                *model = provider.default_model().to_owned();
+            }
         }
         if !lvglab_ai::EFFORTS.contains(&self.ai_effort.as_str()) {
             self.ai_effort = "medium".to_owned();
@@ -230,8 +304,38 @@ mod tests {
 
     #[test]
     fn old_settings_files_still_load() {
-        let settings: AppSettings = serde_json::from_str(r#"{"grid_size": 8}"#).unwrap();
+        let settings: AppSettings =
+            serde_json::from_str(r#"{"grid_size": 8, "ai_api_key": "sk-ant-x", "ai_model": "claude-haiku-5-5"}"#)
+                .unwrap();
         assert_eq!(settings.grid_size, 8);
         assert_eq!(settings.history_limit, 300);
+        assert_eq!(settings.ai_provider, lvglab_ai::Provider::Anthropic);
+        assert_eq!(settings.ai_config().api_key, "sk-ant-x");
+        assert_eq!(settings.ai_config().model, "claude-haiku-5-5");
+    }
+
+    #[test]
+    fn each_provider_keeps_its_own_key_and_model() {
+        let mut settings = AppSettings { ai_api_key: "anthropic".into(), ..AppSettings::default() };
+        *settings.key_mut(lvglab_ai::Provider::OpenAi) = "openai".into();
+        *settings.model_mut(lvglab_ai::Provider::OpenAi) = "my-custom-gpt".into();
+        settings.ai_provider = lvglab_ai::Provider::OpenAi;
+        settings.sanitize();
+        let config = settings.ai_config();
+        assert_eq!((config.api_key.as_str(), config.model.as_str()), ("openai", "my-custom-gpt"));
+        settings.ai_provider = lvglab_ai::Provider::DeepSeek;
+        assert_eq!(settings.ai_config().model, lvglab_ai::Provider::DeepSeek.default_model());
+        settings.reset();
+        assert_eq!(settings.ai_openai_key, "openai", "reset keeps the keys");
+        assert_eq!(settings.ai_api_key, "anthropic");
+    }
+
+    #[test]
+    fn sanitize_restores_unknown_anthropic_models() {
+        let mut settings =
+            AppSettings { ai_model: "gone".into(), ai_deepseek_model: " ".into(), ..AppSettings::default() };
+        settings.sanitize();
+        assert_eq!(settings.ai_model, lvglab_ai::MODELS[0].0);
+        assert_eq!(settings.ai_deepseek_model, lvglab_ai::Provider::DeepSeek.default_model());
     }
 }

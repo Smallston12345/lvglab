@@ -27,6 +27,7 @@ pub const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 
 #[derive(Clone, Debug)]
 pub struct Config {
+    pub provider: crate::provider::Provider,
     pub api_key: String,
     pub model: String,
     pub effort: String,
@@ -200,7 +201,7 @@ mod tests {
     use super::*;
 
     fn config(model: &str) -> Config {
-        Config { api_key: "k".into(), model: model.into(), effort: "medium".into() }
+        Config { provider: Default::default(), api_key: "k".into(), model: model.into(), effort: "medium".into() }
     }
 
     #[test]

@@ -1,6 +1,6 @@
 [package]
 name = "lvglab-ai"
-description = "AI assistant of LVGLab: builds LVGL user interfaces with Claude."
+description = "AI assistant of LVGLab: builds LVGL user interfaces with Claude, GPT or DeepSeek."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
